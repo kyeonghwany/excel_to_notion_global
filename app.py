@@ -45,8 +45,8 @@ def st_excel_to_notion(key = None, fn_preprocess = preprocess_reservation, data_
     processed_df = fn_preprocess(df.copy())
 
     if key == "2":
-        min_chart = processed_df["차트번호"].min()
-        max_chart = processed_df["차트번호"].max()
+        min_chart = int(processed_df["차트번호"].min())
+        max_chart = int(processed_df["차트번호"].max())
 
         filter_payload = {
             "and": [
@@ -60,7 +60,7 @@ def st_excel_to_notion(key = None, fn_preprocess = preprocess_reservation, data_
                 },
             ]
         }
-        df_reservation = load_notion_df_filtered(data_source_id_sub, NOTION_TOKEN, filter_payload)
+        df_reservation = load_notion_df_filtered(str(data_source_id_sub), NOTION_TOKEN, filter_payload)
         idx = df_reservation.groupby("차트번호")["last_edited_time"].idxmax()
         df_reservation_ = df_reservation.loc[idx, ["차트번호", "page_id"]].rename(columns={"page_id": "예약리스트"})
 
