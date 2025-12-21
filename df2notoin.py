@@ -149,6 +149,18 @@ def value_to_notion_property(
             }
         }
 
+    if ptype == "relation":
+        if isinstance(value, (list, tuple, set)):
+            ids = [str(v).strip() for v in value if not _is_null(v)]
+        else:
+            ids = [v.strip() for v in str(value).split(",") if v.strip()]
+
+        if not ids:
+            return None
+
+        return {
+            "relation": [{"id": pid} for pid in ids]
+        }
     # 그 외 (people, relation, files, url, email, phone_number, status, formula, rollup 등)
     # 은 여기서 별도 구현하거나, User가 직접 확장하도록 남겨둔다.
     # 기본적으로는 스킵

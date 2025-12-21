@@ -4,3 +4,4 @@ __pycache__/
 .streamlit/
 *.ipynb
 *.xls
+*.xlsx
