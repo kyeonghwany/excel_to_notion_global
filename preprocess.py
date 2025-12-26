@@ -12,8 +12,12 @@ def preprocess_reservation(df: pd.DataFrame) -> pd.DataFrame:
 
 def preprocess_sales(df: pd.DataFrame) -> pd.DataFrame:
     
-    df = df.rename(columns={"No.": "차트번호"}).iloc[:-1]
+    df = df.rename(columns={"No.": "차트번호", "이름": "고객명"}).iloc[:-1]
+    df[["번호"]] = df[["번호"]].ffill()
+    df[["차트번호", "고객명", "지점", "상담자", "통역", "최종상태"]] = df.groupby("번호")[["차트번호", "고객명", "지점", "상담자", "통역", "최종상태"]].ffill()
+    df = df.dropna(subset=["상태"])
     df["차트번호"] = df["차트번호"].astype(int)
-    df = df.loc[:,["정산일", "차트번호", "고객명", "상태", "최종상태", "상담자", "국가", "1차경로", "2차경로", "3차경로", "지점", "수술/시술비"]]
+    df = df.loc[:,["정산일", "차트번호", "고객명", "상태", "최종상태", "상담자", "원장", "지점", "총수술비", "합계"]]
+    df = df[df["상태"] == "완납"]
     
     return df
