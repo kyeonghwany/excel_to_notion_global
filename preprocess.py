@@ -3,7 +3,6 @@ import pandas as pd
 def preprocess_reservation(df: pd.DataFrame) -> pd.DataFrame:
     
     df = df.rename(columns={"No.": "차트번호"}).iloc[:-1]
-    df["등록일시"] = df.등록일시 + ":00.000+09:00"
     df["예약일시"] = df.예약일 + " " + df.시간 + ":00.000+09:00"
     df["등록일"] = df["등록일시"].str[:10]
     df["차트번호"] = df["차트번호"].astype(int)
