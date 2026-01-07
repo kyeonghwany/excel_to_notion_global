@@ -17,7 +17,10 @@ def preprocess_sales(df: pd.DataFrame) -> pd.DataFrame:
     df[["차트번호", "고객명", "지점", "상담자", "통역", "최종상태"]] = df.groupby("번호")[["차트번호", "고객명", "지점", "상담자", "통역", "최종상태"]].ffill()
     df = df.dropna(subset=["상태"])
     df["차트번호"] = df["차트번호"].astype(int)
+    df["총수술비"] = df["총수술비"].str.replace(",", "", regex=False)
+    df["합계"] = df["합계"].str.replace(",", "", regex=False)
     df = df.loc[:,["정산일", "차트번호", "고객명", "상태", "최종상태", "상담자", "원장", "지점", "총수술비", "합계"]]
     df = df[df["상태"] == "완납"]
     
     return df
+    
