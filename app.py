@@ -61,7 +61,14 @@ def st_excel_to_notion(key = None, fn_preprocess = preprocess_reservation, data_
             ]
         }
         df_reservation = load_notion_df_filtered(str(data_source_id_sub), NOTION_TOKEN, filter_payload)
-        idx = df_reservation.groupby("차트번호")["last_edited_time"].idxmax()
+
+        df_reservation = df_reservation[
+             df_reservation["구분"].isin(["수술", "시술", "외부수술", "외부시술"]) &
+             df_reservation["상태"].isin(["완료", "결정"])
+             ]
+        df_reservation.loc[:, "예약일시"] = pd.to_datetime(df_reservation["예약일시"])
+
+        idx = df_reservation.groupby("차트번호")["예약일시"].idxmax()
         df_reservation_ = df_reservation.loc[idx, ["차트번호", "page_id"]].rename(columns={"page_id": "예약리스트"})
 
         processed_df = pd.merge(
