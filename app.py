@@ -90,6 +90,7 @@ def st_excel_to_notion(key = None, fn_preprocess = preprocess_reservation, data_
         key = f"download_{key}")
 
     st.subheader("Notion 업로드")
+    st.info(f"전체 {len(processed_df)}개의 데이터가 Notion에 업로드 예정입니다.")
     if st.button("Notion에 업로드", key=f"btn_upload_{key}", type="primary"):
 
         st.info(f"전체 {len(processed_df)}개의 데이터가 Notion에 업로드 중 입니다.")
