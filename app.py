@@ -31,7 +31,7 @@ def load_notion_by_chart_numbers(database_id, token, chart_numbers, batch_size=1
         all_dfs.append(df_batch)
         print(f"Batch {i+1}/{total_batches} loaded: {len(df_batch)} rows")
 
-    return pd.concat(all_dfs, ignore_index=True) if all_dfs else pd.DataFrame()
+    return pd.concat(all_dfs, ignore_index=True).reset_index(drop=True)
 
 def read_excel(file) -> Optional[pd.DataFrame]:
     """Read the uploaded Excel file into a DataFrame with basic error handling."""
@@ -80,7 +80,7 @@ def st_excel_to_notion(key = None, fn_preprocess = preprocess_reservation, data_
         df_reservation = df_reservation[
              df_reservation["상태"].isin(["완료", "결정", "불가", "외출"])
              ]
-        df_reservation.loc[:, "예약일시"] = pd.to_datetime(df_reservation["예약일시"])
+        df_reservation["예약일시"] = pd.to_datetime(df_reservation["예약일시"], errors="coerce")
 
         idx = df_reservation.groupby("차트번호")["예약일시"].idxmax()
         df_reservation_ = df_reservation.loc[idx, ["차트번호", "page_id"]].rename(columns={"page_id": "예약리스트"})
