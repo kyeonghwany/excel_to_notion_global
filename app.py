@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 from typing import Optional
+import math
 
 import pandas as pd
 import streamlit as st
@@ -10,6 +11,27 @@ import streamlit as st
 from df2notoin import upload_dataframe_to_notion_data_source 
 from notion2df import load_notion_df_filtered
 from preprocess import preprocess_reservation, preprocess_sales
+
+def load_notion_by_chart_numbers(database_id, token, chart_numbers, batch_size=100):
+    all_dfs = []
+    chart_list = list(chart_numbers)
+    total_batches = math.ceil(len(chart_list) / batch_size)
+
+    for i in range(total_batches):
+        batch = [int(x) for x in chart_list[i * batch_size : (i + 1) * batch_size]]
+
+        filter_payload = {
+            "or": [
+                {"property": "차트번호", "number": {"equals": chart_no}}
+                for chart_no in batch
+            ]
+        }
+
+        df_batch = load_notion_df_filtered(database_id, token, filter_payload)
+        all_dfs.append(df_batch)
+        print(f"Batch {i+1}/{total_batches} loaded: {len(df_batch)} rows")
+
+    return pd.concat(all_dfs, ignore_index=True) if all_dfs else pd.DataFrame()
 
 def read_excel(file) -> Optional[pd.DataFrame]:
     """Read the uploaded Excel file into a DataFrame with basic error handling."""
@@ -45,22 +67,15 @@ def st_excel_to_notion(key = None, fn_preprocess = preprocess_reservation, data_
     processed_df = fn_preprocess(df.copy())
 
     if key == "2":
-        min_chart = int(processed_df["차트번호"].min())
-        max_chart = int(processed_df["차트번호"].max())
 
-        filter_payload = {
-            "and": [
-                {
-                    "property": "차트번호",
-                    "number": {"greater_than_or_equal_to": min_chart},
-                },
-                {
-                    "property": "차트번호",
-                    "number": {"less_than_or_equal_to": max_chart},
-                },
-            ]
-        }
-        df_reservation = load_notion_df_filtered(str(data_source_id_sub), NOTION_TOKEN, filter_payload)
+        chart_numbers = processed_df["차트번호"].dropna().astype(int).unique()
+
+        df_reservation = load_notion_by_chart_numbers(
+            str(data_source_id_sub),
+            NOTION_TOKEN,
+            chart_numbers,
+            batch_size=100
+        )
 
         df_reservation = df_reservation[
              df_reservation["상태"].isin(["완료", "결정", "불가", "외출"])
