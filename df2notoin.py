@@ -1,3 +1,4 @@
+import time
 import requests
 import pandas as pd
 from datetime import datetime, date
@@ -5,6 +6,11 @@ from typing import Dict, Any, Optional
 
 NOTION_VERSION = "2025-09-03"
 BASE_URL = "https://api.notion.com/v1"
+
+# 429 / 5xx 응답에 대한 재시도 설정
+MAX_RETRIES = 6
+INITIAL_BACKOFF_SEC = 1.0
+MAX_BACKOFF_SEC = 32.0
 
 
 class NotionAPIError(Exception):
@@ -20,6 +26,64 @@ def _make_headers(token: str) -> Dict[str, str]:
     }
 
 
+def _request_with_retry(
+    method: str,
+    url: str,
+    headers: Dict[str, str],
+    *,
+    json: Optional[Dict[str, Any]] = None,
+    timeout: float = 60.0,
+    max_retries: int = MAX_RETRIES,
+) -> requests.Response:
+    """
+    Notion API 호출용 requests 래퍼.
+    429 또는 5xx 응답이면 지수 백오프로 재시도한다.
+    Retry-After 헤더가 있으면 해당 값(초)을 우선 사용한다.
+    """
+    delay = INITIAL_BACKOFF_SEC
+    res: Optional[requests.Response] = None
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            res = requests.request(
+                method, url, headers=headers, json=json, timeout=timeout
+            )
+        except requests.RequestException as exc:
+            # 네트워크 오류도 동일하게 재시도
+            if attempt == max_retries:
+                raise
+            print(
+                f"[Notion] network error on {method} {url}: {exc} — "
+                f"retry {attempt}/{max_retries} after {delay:.1f}s"
+            )
+            time.sleep(delay)
+            delay = min(delay * 2, MAX_BACKOFF_SEC)
+            continue
+
+        # 정상 응답 또는 재시도해도 의미 없는 4xx(비 429)는 즉시 반환
+        if res.status_code != 429 and not (500 <= res.status_code < 600):
+            return res
+
+        # 마지막 시도면 그대로 반환하여 호출자가 에러 처리
+        if attempt == max_retries:
+            return res
+
+        retry_after_raw = res.headers.get("Retry-After")
+        try:
+            wait = float(retry_after_raw) if retry_after_raw is not None else delay
+        except ValueError:
+            wait = delay
+
+        print(
+            f"[Notion] {res.status_code} on {method} {url} — "
+            f"retry {attempt}/{max_retries} after {wait:.1f}s"
+        )
+        time.sleep(wait)
+        delay = min(delay * 2, MAX_BACKOFF_SEC)
+
+    return res  # type: ignore[return-value]
+
+
 def get_data_source_schema(
     data_source_id: str,
     token: str,
@@ -29,7 +93,7 @@ def get_data_source_schema(
     (각 프로퍼티의 name, type 등을 사용해서 DataFrame → Notion 변환에 활용)
     """
     url = f"{BASE_URL}/data_sources/{data_source_id}"
-    res = requests.get(url, headers=_make_headers(token))
+    res = _request_with_retry("GET", url, _make_headers(token))
     if not res.ok:
         raise NotionAPIError(
             f"Failed to retrieve data source schema: "
@@ -229,16 +293,17 @@ def upload_dataframe_to_notion_data_source(
             "properties": properties_payload,
         }
 
-        res = requests.post(
+        res = _request_with_retry(
+            "POST",
             f"{BASE_URL}/pages",
-            headers=headers,
+            headers,
             json=body,
         )
 
         if res.status_code == 429:
             raise NotionAPIError(
-                "Rate limited by Notion API (HTTP 429). "
-                "잠시 후 다시 시도하거나, 백오프 로직을 추가하세요."
+                f"Rate limited by Notion API (HTTP 429) after {MAX_RETRIES} retries "
+                f"on row {idx}. 잠시 후 다시 시도해 주세요."
             )
 
         if not res.ok:
