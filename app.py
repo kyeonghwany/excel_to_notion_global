@@ -78,7 +78,7 @@ def st_excel_to_notion(key = None, fn_preprocess = preprocess_reservation, data_
         )
 
         df_reservation = df_reservation[
-             df_reservation["상태"].isin(["완료", "결정", "불가", "외출"])
+             df_reservation["상태"].isin(["완료", "결정", "불가", "외출", "가예약"])
              ]
         df_reservation["예약일시"] = pd.to_datetime(df_reservation["예약일시"], errors="coerce")
 
